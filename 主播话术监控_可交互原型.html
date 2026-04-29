@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主播实时话术监控 + 违规触发录屏存证 - 可交互原型Demo</title>
+<style>
+/* ========== RESET & BASE ========== */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#E91E63;--primary-dark:#C2185B;--primary-light:#FCE4EC;--primary-50:#FFF0F5;
+  --accent-red:#F44336;--accent-red-light:#FFEBEE;
+  --warning:#FF9800;--warning-light:#FFF3E0;
+  --success:#4CAF50;--success-light:#E8F5E9;
+  --text-primary:#1A1A1A;--text-secondary:#666666;--text-tertiary:#999999;
+  --bg:#F5F5F5;--card:#FFFFFF;--border:#EEEEEE;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.1);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;background:var(--bg);color:var(--text-primary);font-size:14px;overflow:hidden;height:100vh}
+button{cursor:pointer;border:none;font-family:inherit;font-size:inherit}
+input,select{font-family:inherit;font-size:13px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#DDD;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#BBB}
+
+/* ========== TOP NAV ========== */
+.top-nav{height:48px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;position:relative;z-index:100}
+.top-nav .logo{font-size:15px;font-weight:700;color:var(--text-primary);margin-right:32px;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.top-nav .logo .logo-icon{width:24px;height:24px;background:var(--primary);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+.nav-tabs{display:flex;height:100%;gap:0}
+.nav-tab{padding:0 20px;height:100%;display:flex;align-items:center;color:var(--text-secondary);font-size:13px;font-weight:500;transition:all .2s;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;position:relative}
+.nav-tab:hover{color:var(--text-primary)}
+.nav-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.nav-tab .badge-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-red);margin-left:6px;display:none;position:absolute;top:12px;right:8px}
+.nav-tab .badge-dot.show{display:block}
+
+/* ========== PAGE CONTAINER ========== */
+.page{display:none;height:calc(100vh - 48px);overflow:hidden}
+.page.active{display:flex;flex-direction:column}
+
+/* ========== COMMON COMPONENTS ========== */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow)}
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.section-header .accent-bar{width:3px;height:16px;border-radius:2px;flex-shrink:0}
+.section-header .accent-bar.pink{background:var(--primary)}
+.section-header .accent-bar.orange{background:var(--warning)}
+.section-header .accent-bar.green{background:var(--success)}
+.section-header .accent-bar.red{background:var(--accent-red)}
+.section-header .title{font-size:14px;font-weight:600;color:var(--text-primary)}
+.section-header .subtitle{font-size:11px;color:var(--text-tertiary);margin-left:8px}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;white-space:nowrap}
+.badge-danger{background:var(--accent-red-light);color:var(--accent-red)}
+.badge-warning{background:var(--warning-light);color:var(--warning)}
+.badge-success{background:var(--success-light);color:var(--success)}
+.badge-primary{background:var(--primary-light);color:var(--primary)}
+.badge-muted{background:#F5F5F5;color:var(--text-tertiary)}
+.btn{padding:6px 16px;border-radius:6px;font-size:13px;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-danger{background:var(--accent-red);color:#fff}.btn-danger:hover{background:#D32F2F}
+.btn-success{background:var(--success);color:#fff}.btn-success:hover{background:#388E3C}
+.btn-outline{background:#fff;color:var(--text-secondary);border:1px solid var(--border)}.btn-outline:hover{border-color:var(--primary);color:var(--primary)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.mock-input{background:#FAFAFA;border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-tertiary);font-size:13px}
+table{width:100%;border-collapse:collapse}
+th{background:#FAFAFA;color:var(--text-secondary);font-size:12px;font-weight:600;padding:10px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;font-size:12px;border-bottom:1px solid #F5F5F5;white-space:nowrap;color:var(--text-secondary)}
+tr:hover td{background:#FAFAFA}
+
+/* ================================================================
+   场控端 — 基于现有场控端UI风格扩展
+   ================================================================ */
+.ctrl-page{display:flex;flex-direction:column;height:100%;background:var(--bg)}
+
+/* 顶部信息栏 — 模仿截图的top bar */
+.ctrl-topbar{background:#fff;padding:10px 20px;display:flex;align-items:center;gap:16px;font-size:13px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.ctrl-topbar .product-info-bar{display:flex;align-items:center;gap:8px}
+.ctrl-topbar .product-icon{width:28px;height:28px;background:var(--primary-light);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:14px}
+.ctrl-topbar .product-label{font-size:13px;color:var(--text-secondary)}
+.ctrl-topbar .product-name{font-size:14px;font-weight:600;color:var(--text-primary)}
+.ctrl-topbar .timer-group{display:flex;align-items:center;gap:6px;margin-left:12px}
+.ctrl-topbar .timer-label{font-size:12px;color:var(--text-tertiary)}
+.ctrl-topbar .timer-value{font-size:18px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
+.ctrl-topbar .sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.ctrl-topbar .live-badge{display:flex;align-items:center;gap:5px;padding:3px 10px;background:var(--accent-red-light);border-radius:12px;font-size:11px;font-weight:600;color:var(--accent-red)}
+.ctrl-topbar .live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent-red);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.ctrl-topbar .inventory-group{display:flex;align-items:center;gap:6px}
+.ctrl-topbar .inventory-value{font-size:16px;font-weight:700;color:var(--primary)}
+.ctrl-topbar .violation-summary{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text-tertiary)}
+.ctrl-topbar .violation-summary .v-count{font-weight:700;color:var(--accent-red)}
+.ctrl-topbar .violation-summary .t-count{font-weight:700;color:var(--warning)}
+
+/* KPI指标行 — 模仿截图的KPI cards */
+.kpi-row{display:flex;gap:12px;padding:12px 20px;flex-shrink:0;overflow-x:auto}
+.kpi-card{background:#fff;border-radius:var(--radius);padding:12px 16px;min-width:130px;flex:1;box-shadow:var(--shadow)}
+.kpi-card.highlight{background:var(--primary-light)}
+.kpi-card .kpi-label{font-size:12px;color:var(--text-tertiary);margin-bottom:4px}
+.kpi-card .kpi-value{font-size:24px;font-weight:700;color:var(--text-primary);line-height:1.2}
+.kpi-card.highlight .kpi-value{color:var(--primary)}
+.kpi-card .kpi-trend{font-size:11px;margin-top:2px;display:flex;align-items:center;gap:2px}
+.kpi-card .kpi-trend.up{color:var(--success)}
+.kpi-card .kpi-trend.down{color:var(--accent-red)}
+
+/* 三栏主体布局 */
+.ctrl-body{display:flex;flex:1;overflow:hidden;padding:0 20px 16px;gap:12px}
+.ctrl-col{display:flex;flex-direction:column;overflow:hidden;border-radius:var(--radius-lg);background:#fff;box-shadow:var(--shadow)}
+.ctrl-col-left{width:28%;flex-shrink:0}
+.ctrl-col-center{flex:1}
+.ctrl-col-right{width:30%;flex-shrink:0}
+.col-header{padding:14px 16px;border-bottom:1px solid #F5F5F5;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.col-header .title{font-size:14px;font-weight:600;color:var(--text-primary)}
+.col-body{flex:1;overflow-y:auto;padding:12px 16px}
+
+/* 左栏：实时话术统计 + 话术流 */
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #FAFAFA}
+.stat-row:last-child{border-bottom:none}
+.stat-row .stat-label{font-size:12px;color:var(--text-tertiary)}
+.stat-row .stat-value{font-size:15px;font-weight:600;color:var(--text-primary)}
+.stat-row.highlight-row{background:var(--success-light);margin:0 -16px;padding:8px 16px;border-radius:6px;border-bottom:none}
+.stat-row.highlight-row .stat-label{color:var(--success)}
+.stat-row.highlight-row .stat-value{color:var(--success);font-size:18px}
+
+.speech-flow-title{font-size:12px;font-weight:600;color:var(--text-secondary);margin:12px 0 8px;display:flex;align-items:center;gap:6px}
+.speech-flow-title::before{content:'';width:2px;height:12px;background:var(--primary);border-radius:1px}
+.speech-list{flex:1;overflow-y:auto;padding:0 4px}
+.speech-item{display:flex;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:2px;transition:background .15s;font-size:12px}
+.speech-item:hover{background:#FAFAFA}
+.speech-item .time{color:var(--text-tertiary);font-size:11px;flex-shrink:0;width:50px;padding-top:1px}
+.speech-item .text{font-size:12px;line-height:1.6;color:var(--text-secondary);flex:1}
+.speech-item.violation{background:var(--accent-red-light);border-left:3px solid var(--accent-red);border-radius:0 6px 6px 0}
+.speech-item.violation .text{color:var(--accent-red);font-weight:600}
+.speech-item .highlight-word{background:var(--accent-red);color:#fff;padding:1px 4px;border-radius:3px;font-size:11px}
+
+/* 时间戳记录栏 */
+.timestamp-bar{padding:10px 16px;border-top:1px solid #F5F5F5;display:flex;align-items:center;gap:8px;flex-shrink:0;background:#FAFAFA;flex-wrap:wrap}
+.timestamp-bar .ts-label{font-size:11px;font-weight:600;color:var(--text-secondary)}
+.ts-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:500;background:var(--warning-light);color:var(--warning)}
+.ts-badge.recorded{background:var(--success-light);color:var(--success)}
+.ts-badge .ts-icon{font-size:11px}
+
+/* 中栏：违规告警 + 当前商品 */
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--radius);margin-bottom:6px;border:1px solid #F5F5F5;cursor:pointer;transition:all .15s}
+.alert-item:hover{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-light)}
+.alert-item .alert-level{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:6px}
+.alert-item .alert-level.high{background:var(--accent-red)}
+.alert-item .alert-level.mid{background:var(--warning)}
+.alert-item .alert-body{flex:1;min-width:0}
+.alert-item .alert-title{font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:2px}
+.alert-item .alert-desc{font-size:11px;color:var(--text-tertiary);line-height:1.4}
+.alert-item .alert-time{font-size:11px;color:var(--text-tertiary);flex-shrink:0}
+
+/* 当前商品卡片 */
+.product-card{display:flex;gap:12px;align-items:flex-start;padding:12px;background:#FAFAFA;border-radius:var(--radius)}
+.product-img{width:72px;height:72px;background:#E0E0E0;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:11px;flex-shrink:0}
+.product-info{flex:1}
+.product-info h4{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.product-info .sku{font-size:11px;color:var(--text-tertiary);margin-bottom:6px}
+.product-info .product-specs{display:flex;gap:16px;flex-wrap:wrap}
+.product-info .spec-item{font-size:11px;color:var(--text-secondary)}
+.product-info .spec-item .spec-label{color:var(--text-tertiary)}
+.product-info .material-warn{color:var(--accent-red);font-weight:600}
+.product-word-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.product-word-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:3px;font-size:10px;background:var(--warning-light);color:#E65100;border:1px solid #FFE0B2}
+.product-word-tag .product-name{font-weight:600;color:#BF360C}
+
+/* 右栏：操作日志 + 高光话术 */
+.log-item{display:flex;gap:8px;padding:6px 0;font-size:12px;border-bottom:1px solid #FAFAFA;line-height:1.6}
+.log-item:last-child{border-bottom:none}
+.log-item .log-time{color:var(--text-tertiary);flex-shrink:0;width:52px;font-size:11px}
+.log-item .log-text{color:var(--text-secondary);flex:1}
+.log-item .log-text .log-tag{font-weight:600}
+.log-item .log-text .log-tag.danger{color:var(--accent-red)}
+.log-item .log-text .log-tag.warning{color:var(--warning)}
+.log-item .log-text .log-tag.success{color:var(--success)}
+.log-pending{color:var(--text-tertiary);font-style:italic;font-size:11px;margin-top:8px;padding:8px;background:#FAFAFA;border-radius:6px}
+
+/* 高光话术 */
+.highlight-card{padding:10px;border:1px solid #F5F5F5;border-radius:var(--radius);margin-bottom:8px}
+.highlight-card .hl-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.highlight-card .hl-avatar{width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--primary);font-weight:600}
+.highlight-card .hl-name{font-size:12px;font-weight:600;color:var(--text-primary)}
+.highlight-card .hl-time{font-size:10px;color:var(--text-tertiary);margin-left:auto}
+.highlight-card .hl-text{font-size:12px;color:var(--text-secondary);line-height:1.6;padding:8px 10px;background:#FAFAFA;border-radius:6px;border-left:3px solid var(--primary)}
+.highlight-card .hl-tags{display:flex;gap:4px;margin-top:6px}
+.highlight-card .hl-tag{font-size:10px;color:var(--text-tertiary);background:#F5F5F5;padding:2px 6px;border-radius:3px}
+
+/* ========== 主播提醒弹窗（全屏覆盖） ========== */
+.anchor-overlay{position:fixed;inset:0;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#1A1A2E 0%,#16213E 50%,#0F3460 100%);animation:anchorFadeIn .2s ease-out}
+.anchor-overlay.show{display:flex}
+@keyframes anchorFadeIn{from{opacity:0}to{opacity:1}}
+.anchor-overlay .top-accent{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--accent-red),var(--primary))}
+.anchor-overlay .icon-circle{width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:64px;background:rgba(244,67,54,0.15);border:3px solid var(--accent-red);box-shadow:0 0 60px rgba(244,67,54,0.3);animation:shake .5s ease-in-out;margin-bottom:20px}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.anchor-overlay .alert-title{font-size:28px;font-weight:700;color:#FF8A80;margin-bottom:20px}
+.anchor-overlay .correction-box{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:28px 48px;text-align:center;max-width:700px;margin-bottom:20px;backdrop-filter:blur(10px)}
+.anchor-overlay .correction-label{font-size:14px;color:var(--accent-red);font-weight:600;margin-bottom:10px}
+.anchor-overlay .correction-text{font-size:28px;font-weight:700;color:#fff;line-height:1.5;margin-bottom:10px}
+.anchor-overlay .correction-detail{font-size:14px;color:rgba(255,255,255,0.6)}
+.anchor-overlay .product-strip{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 28px;display:flex;align-items:center;gap:14px;max-width:560px;backdrop-filter:blur(10px)}
+.anchor-overlay .product-strip .img{width:48px;height:48px;background:rgba(255,255,255,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-size:10px}
+.anchor-overlay .product-strip h4{color:#fff;font-size:14px;font-weight:600;margin-bottom:2px}
+.anchor-overlay .product-strip p{color:rgba(255,255,255,0.5);font-size:12px}
+.anchor-overlay .bottom-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.3);padding:10px 24px;display:flex;align-items:center;gap:16px;font-size:12px;color:rgba(255,255,255,0.4)}
+.anchor-overlay .dismiss-hint{position:absolute;bottom:64px;color:rgba(255,255,255,0.25);font-size:12px}
+.anchor-overlay .dismiss-btn{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .15s}
+.anchor-overlay .dismiss-btn:hover{background:rgba(255,255,255,0.15);color:#fff}
+
+/* ========== ALERT MODAL (场控详情弹窗) ========== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);width:600px;max-height:85vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.2);display:flex;flex-direction:column}
+.modal-header{background:var(--accent-red);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:15px;font-weight:600}
+.modal-close{background:none;color:#fff;font-size:20px;padding:0 4px;cursor:pointer;line-height:1}
+.modal-close:hover{opacity:.7}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+
+/* ================================================================
+   PM管理端
+   ================================================================ */
+.pm-page{display:flex;flex-direction:column;height:100%}
+.pm-toolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;background:#fff}
+.pm-toolbar .mock-input{width:160px}
+.pm-toolbar select{width:110px;background:#FAFAFA;border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text-secondary)}
+.pm-content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.pm-tabs{display:flex;padding:0 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:#fff}
+.pm-tab{padding:12px 20px;font-size:13px;font-weight:500;color:var(--text-tertiary);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.pm-tab:hover{color:var(--text-primary)}
+.pm-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.pm-tab-panel{display:none;flex:1;overflow:hidden}
+.pm-tab-panel.active{display:flex;flex-direction:column}
+
+.stats-row{display:flex;gap:12px;padding:16px 20px;flex-shrink:0}
+.stat-card{flex:1;background:#fff;border-radius:var(--radius);padding:14px 16px;text-align:center;box-shadow:var(--shadow)}
+.stat-card .num{font-size:28px;font-weight:700;line-height:1.2}
+.stat-card .label{font-size:12px;color:var(--text-tertiary);margin-top:2px}
+.stat-card.danger .num{color:var(--accent-red)}
+.stat-card.warning .num{color:var(--warning)}
+.stat-card.success .num{color:var(--success)}
+.stat-card.primary .num{color:var(--primary)}
+
+.pm-table-wrap{flex:1;overflow:auto;padding:0 20px 12px}
+.pm-table-wrap table{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.pm-pagination{padding:10px 20px;text-align:center;font-size:12px;color:var(--text-tertiary);flex-shrink:0}
+
+.pm-detail{flex:1;overflow-y:auto;padding:16px 20px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.detail-card{padding:16px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+.detail-card h4{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.info-row{display:flex;margin-bottom:6px;font-size:12px}
+.info-row .label{color:var(--text-tertiary);width:80px;flex-shrink:0}
+.info-row .value{font-weight:500;color:var(--text-secondary)}
+.evidence-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#FAFAFA;border-radius:6px;margin-bottom:6px;border-left:3px solid var(--primary)}
+.evidence-item .ev-label{font-size:12px;font-weight:500;flex:1;color:var(--text-secondary)}
+.evidence-item .ev-dur{font-size:11px;color:var(--text-tertiary)}
+.evidence-item .ev-status{font-size:11px;color:var(--success);font-weight:500}
+.video-player{background:#1A1A2E;border-radius:8px;position:relative;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.video-timeline{position:relative;height:16px;background:#E0E0E0;border-radius:4px;margin:8px 0}
+.video-timeline .played{position:absolute;left:0;top:0;height:100%;background:var(--primary);border-radius:4px;width:35%}
+.video-timeline .thumb{position:absolute;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;background:var(--primary);border-radius:50%;left:35%}
+.video-markers{display:flex;gap:16px;font-size:11px;margin-bottom:4px}
+.video-markers .marker{display:flex;align-items:center;gap:4px;color:var(--text-tertiary)}
+.video-markers .marker::before{content:'';width:6px;height:6px;border-radius:50%}
+.video-markers .marker.violation::before{background:var(--accent-red)}
+.video-markers .marker.correction::before{background:var(--success)}
+.transcript-list{max-height:180px;overflow-y:auto}
+.transcript-item{display:flex;gap:8px;padding:4px 0;font-size:12px}
+.transcript-item .t-time{color:var(--text-tertiary);width:55px;flex-shrink:0}
+.transcript-item .t-text{color:var(--text-secondary)}
+.transcript-item.hl{background:var(--accent-red-light);border-radius:4px;padding:4px 6px;margin:0 -6px}
+.transcript-item.hl .t-text{color:var(--accent-red);font-weight:600}
+
+.wordlib-actions{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;flex-shrink:0}
+.wordlib-stats{display:flex;gap:24px;padding:0 20px 12px}
+.wordlib-stat{text-align:center}
+.wordlib-stat .num{font-size:22px;font-weight:700;color:var(--primary)}
+.wordlib-stat .label{font-size:11px;color:var(--text-tertiary)}
+.import-area{border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;color:var(--text-tertiary);font-size:13px;margin:12px 20px;cursor:pointer;transition:border-color .15s}
+.import-area:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ========== TOAST ========== */
+.toast{position:fixed;top:60px;right:20px;background:var(--text-primary);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:600;transform:translateX(120%);transition:transform .3s;box-shadow:var(--shadow-md)}
+.toast.show{transform:translateX(0)}
+.toast.success{border-left:4px solid var(--success)}
+.toast.warning{border-left:4px solid var(--warning)}
+.toast.error{border-left:4px solid var(--accent-red)}
+</style>
+</head>
+<body>
+
+<!-- ========== TOP NAV ========== -->
+<nav class="top-nav">
+  <div class="logo">
+    <div class="logo-icon">LG</div>
+    话术监控
+  </div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-page="ctrl" onclick="switchPage('ctrl')">
+      场控端（主播共用）
+      <span class="badge-dot show" id="ctrlDot"></span>
+    </div>
+    <div class="nav-tab" data-page="pm" onclick="switchPage('pm')">
+      PM管理端
+    </div>
+  </div>
+  <div style="flex:1"></div>
+  <div style="font-size:11px;color:var(--text-tertiary)">可交互原型 Demo v2.0</div>
+</nav>
+
+<!-- ================================================================
+     场控端
+     ================================================================ -->
+<div class="page active" id="page-ctrl">
+  <div class="ctrl-page">
+    <!-- 顶部信息栏 -->
+    <div class="ctrl-topbar">
+      <div class="product-info-bar">
+        <div class="product-icon">📦</div>
+        <span class="product-label">商品</span>
+        <span class="product-name">北面儿童三合一羽绒服</span>
+      </div>
+      <div class="sep"></div>
+      <div class="live-badge"><span class="live-dot"></span>直播中</div>
+      <div class="sep"></div>
+      <div class="timer-group">
+        <span class="timer-label">讲解时长</span>
+        <span class="timer-value" id="timerValue">11:29</span>
+      </div>
+      <div class="sep"></div>
+      <div class="inventory-group">
+        <span class="timer-label">实时库存</span>
+        <span class="inventory-value">8,553</span>
+      </div>
+      <div class="violation-summary">
+        <span>本场违规 <span class="v-count">2</span></span>
+        <span>时间戳 <span class="t-count">2</span></span>
+        <span>主播 <span style="font-weight:500;color:var(--text-secondary)">小王</span></span>
+      </div>
+    </div>
+
+    <!-- KPI指标行 -->
+    <div class="kpi-row">
+      <div class="kpi-card highlight">
+        <div class="kpi-label">5分钟GMV</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">讲解期间GMV</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">整场GMV</div>
+        <div class="kpi-value">1,134</div>
+        <div class="kpi-trend up">↑9</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">已付单数</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">待付单数</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">投流消耗</div>
+        <div class="kpi-value">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">投流ROI</div>
+        <div class="kpi-value">0</div>
+      </div>
+    </div>
+
+    <!-- 三栏主体 -->
+    <div class="ctrl-body">
+      <!-- 左栏：实时话术统计 + 话术流 -->
+      <div class="ctrl-col ctrl-col-left">
+        <div class="col-header">
+          <div class="accent-bar pink"></div>
+          <span class="title">实时话术统计</span>
+        </div>
+        <div class="col-body" style="padding-bottom:0">
+          <div class="stat-row"><span class="stat-label">讲解时长</span><span class="stat-value">11:29</span></div>
+          <div class="stat-row"><span class="stat-label">话术总条数</span><span class="stat-value">156</span></div>
+          <div class="stat-row"><span class="stat-label">违规次数</span><span class="stat-value" style="color:var(--accent-red)">2</span></div>
+          <div class="stat-row"><span class="stat-label">纠正次数</span><span class="stat-value" style="color:var(--success)">2</span></div>
+          <div class="stat-row"><span class="stat-label">单品定制词命中</span><span class="stat-value" style="color:var(--warning)">1</span></div>
+          <div class="stat-row highlight-row"><span class="stat-label">合规评分</span><span class="stat-value">92</span></div>
+          <div class="speech-flow-title">实时话术流</div>
+          <div class="speech-list" id="speechList"></div>
+        </div>
+        <!-- 时间戳记录栏 -->
+        <div class="timestamp-bar">
+          <span class="ts-label">📍 时间戳</span>
+          <span class="ts-badge recorded"><span class="ts-icon">✅</span>14:30:25→14:30:52</span>
+          <span class="ts-badge recorded"><span class="ts-icon">✅</span>14:28:10→14:28:15</span>
+          <div style="flex:1"></div>
+          <span style="font-size:10px;color:var(--text-tertiary)">直播结束后自动截取</span>
+        </div>
+      </div>
+
+      <!-- 中栏：违规告警 + 当前商品 -->
+      <div class="ctrl-col ctrl-col-center">
+        <div class="col-header">
+          <div class="accent-bar red"></div>
+          <span class="title">违规告警</span>
+          <span class="subtitle">点击查看详情，可展示给主播</span>
+        </div>
+        <div class="col-body">
+          <div id="alertList">
+            <div class="alert-item" onclick="openAlertModal(0)">
+              <div class="alert-level high"></div>
+              <div class="alert-body">
+                <div class="alert-title"><span class="badge badge-danger">商详不一致</span> "刺绣标"</div>
+                <div class="alert-desc">商详显示：外层为印标。主播未区分内外层标识。</div>
+              </div>
+              <div class="alert-time">14:30:25</div>
+            </div>
+            <div class="alert-item" onclick="openAlertModal(1)">
+              <div class="alert-level mid"></div>
+              <div class="alert-body">
+                <div class="alert-title"><span class="badge badge-warning">通用违规词</span> "永不降价"</div>
+                <div class="alert-desc">禁止使用绝对化词汇</div>
+              </div>
+              <div class="alert-time">14:28:10</div>
+            </div>
+          </div>
+
+          <div class="section-header" style="margin-top:16px">
+            <div class="accent-bar orange"></div>
+            <span class="title">当前讲解商品</span>
+          </div>
+          <div class="product-card">
+            <div class="product-img">商品图</div>
+            <div class="product-info">
+              <h4>北面儿童三合一羽绒服 <span class="badge badge-warning" style="font-size:10px">3条单品词</span></h4>
+              <div class="sku">SKU-2026-88421</div>
+              <div class="product-specs">
+                <span class="spec-item"><span class="spec-label">材质：</span><span class="material-warn">外层: 印标 / 内层: 刺绣标</span></span>
+                <span class="spec-item"><span class="spec-label">年份：</span>2026春季</span>
+                <span class="spec-item"><span class="spec-label">价格：</span>¥1,799</span>
+              </div>
+              <div class="product-word-tags">
+                <span class="product-word-tag"><span class="product-name">本款:</span> 刺绣标(仅限内层)</span>
+                <span class="product-word-tag"><span class="product-name">本款:</span> 100%棉</span>
+                <span class="product-word-tag"><span class="product-name">本款:</span> 2026新款</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右栏：操作日志 + 高光话术 -->
+      <div class="ctrl-col ctrl-col-right">
+        <div class="col-header">
+          <div class="accent-bar green"></div>
+          <span class="title">操作日志</span>
+        </div>
+        <div class="col-body">
+          <div class="log-item">
+            <span class="log-time">14:30:52</span>
+            <span class="log-text"><span class="log-tag success">纠正完成</span> 主播已口头纠正 → 已记录纠正时间戳</span>
+          </div>
+          <div class="log-item">
+            <span class="log-time">14:30:25</span>
+            <span class="log-text"><span class="log-tag warning">主播提醒</span> 全屏弹窗已展示给主播</span>
+          </div>
+          <div class="log-item">
+            <span class="log-time">14:30:25</span>
+            <span class="log-text"><span class="log-tag danger">违规检测</span> 商详不一致："刺绣标" → 已记录时间戳</span>
+          </div>
+          <div class="log-item">
+            <span class="log-time">14:28:15</span>
+            <span class="log-text"><span class="log-tag success">纠正完成</span> 场控提醒后主播已纠正 → 已记录纠正时间戳</span>
+          </div>
+          <div class="log-item">
+            <span class="log-time">14:28:10</span>
+            <span class="log-text"><span class="log-tag danger">违规检测</span> 通用违规词："永不降价" → 已记录时间戳</span>
+          </div>
+          <div class="log-pending">⏳ 直播结束后将自动从回放中截取 14:27:40~14:28:20 和 14:29:55~14:31:22 两段作为证据</div>
+
+          <div class="speech-flow-title" style="margin-top:16px">高光话术</div>
+          <div class="highlight-card">
+            <div class="hl-header">
+              <div class="hl-avatar">王</div>
+              <span class="hl-name">小王</span>
+              <span class="hl-time">14:30:52</span>
+            </div>
+            <div class="hl-text">"外层其实是印标的，大家注意看商详，里面才是刺绣标"</div>
+            <div class="hl-tags">
+              <span class="hl-tag">#纠正话术</span>
+              <span class="hl-tag">#主动纠正</span>
+            </div>
+          </div>
+          <div class="highlight-card">
+            <div class="hl-header">
+              <div class="hl-avatar">王</div>
+              <span class="hl-name">小王</span>
+              <span class="hl-time">14:29:30</span>
+            </div>
+            <div class="hl-text">"这个款我们有两种颜色，黑色和藏青色，内胆可以拆卸"</div>
+            <div class="hl-tags">
+              <span class="hl-tag">#产品介绍</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     主播全屏提醒弹窗
+     ================================================================ -->
+<div class="anchor-overlay" id="anchorOverlay">
+  <div class="top-accent"></div>
+  <div class="dismiss-btn" onclick="dismissAnchor()" title="关闭">&times;</div>
+  <div class="icon-circle">⚠</div>
+  <div class="alert-title">检测到违规话术</div>
+  <div class="correction-box">
+    <div class="correction-label">⚠ 请立即纠正：</div>
+    <div class="correction-text" id="anchorSuggestion">"外层是印标工艺，里面才是刺绣标"</div>
+    <div class="correction-detail" id="anchorDetail">商详显示：外层印标 / 内层刺绣标 → 请勿统称"全部刺绣标"</div>
+  </div>
+  <div class="product-strip">
+    <div class="img">商品图</div>
+    <div>
+      <h4>北面儿童三合一羽绒服</h4>
+      <p>材质：外层印标 / 内层刺绣标 | 价格：¥1,799</p>
+    </div>
+  </div>
+  <div class="dismiss-hint">主播口头纠正后，场控点击右上角 × 关闭</div>
+  <div class="bottom-bar">
+    <span>北面旗舰店铺 | 第2场 | 主播: 小王</span>
+    <div style="flex:1"></div>
+    <span>本场违规: <strong style="color:#FF8A80">1</strong> 次</span>
+    <span style="margin-left:16px">📍 时间戳已记录</span>
+  </div>
+</div>
+
+<!-- ================================================================
+     PM管理端
+     ================================================================ -->
+<div class="page" id="page-pm">
+  <div class="pm-page">
+    <div class="pm-toolbar">
+      <input class="mock-input" placeholder="搜索商品/主播..." style="width:180px">
+      <select><option>全部品牌</option><option>北面</option><option>优衣库</option><option>匡威</option></select>
+      <select><option>全部类型</option><option>商详不一致</option><option>通用违规词</option><option>单品定制词</option></select>
+      <select><option>全部状态</option><option>待处理</option><option>已纠正</option><option>已结案</option><option>待截取</option></select>
+      <input class="mock-input" placeholder="日期范围" style="width:120px">
+      <button class="btn btn-sm btn-primary">查询</button>
+      <button class="btn btn-sm btn-outline">导出Excel</button>
+    </div>
+    <div class="pm-tabs">
+      <div class="pm-tab active" data-tab="records" onclick="switchPmTab('records')">违规记录</div>
+      <div class="pm-tab" data-tab="detail" onclick="switchPmTab('detail')">证据链详情</div>
+      <div class="pm-tab" data-tab="wordlib" onclick="switchPmTab('wordlib')">词库管理</div>
+    </div>
+
+    <!-- 违规记录 -->
+    <div class="pm-tab-panel active" id="tab-records">
+      <div class="stats-row">
+        <div class="stat-card danger"><div class="num">3</div><div class="label">今日违规</div></div>
+        <div class="stat-card warning"><div class="num">12</div><div class="label">本周违规</div></div>
+        <div class="stat-card success"><div class="num">38</div><div class="label">已纠正</div></div>
+        <div class="stat-card primary"><div class="num">42</div><div class="label">证据存证</div></div>
+      </div>
+      <div class="pm-table-wrap">
+        <table>
+          <thead><tr><th>时间</th><th>品牌/店铺</th><th>主播</th><th>违规类型</th><th>命中词汇</th><th>时间戳</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr style="cursor:pointer" onclick="switchPmTab('detail')">
+              <td>04-28 14:30</td><td>北面/旗舰店铺</td><td>小王</td>
+              <td><span class="badge badge-danger">商详不一致</span></td>
+              <td style="color:var(--accent-red);font-weight:600">"刺绣标"</td>
+              <td>✅ 已记录</td><td><span class="badge badge-success">已纠正</span></td>
+              <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();switchPmTab('detail')">查看</button></td>
+            </tr>
+            <tr>
+              <td>04-28 14:28</td><td>北面/旗舰店铺</td><td>小王</td>
+              <td><span class="badge badge-warning">通用违规词</span></td>
+              <td style="color:var(--accent-red);font-weight:600">"永不降价"</td>
+              <td>✅ 已记录</td><td><span class="badge badge-success">已纠正</span></td>
+              <td><button class="btn btn-sm btn-outline">查看</button></td>
+            </tr>
+            <tr>
+              <td>04-27 20:15</td><td>优衣库/官方店</td><td>小李</td>
+              <td><span class="badge badge-danger">单品定制词</span></td>
+              <td style="color:var(--accent-red);font-weight:600">"明星同款"</td>
+              <td>✅ 已记录</td><td><span class="badge badge-primary">已结案</span></td>
+              <td><button class="btn btn-sm btn-outline">查看</button></td>
+            </tr>
+            <tr>
+              <td>04-27 15:42</td><td>北面/矩阵号1</td><td>小张</td>
+              <td><span class="badge badge-danger">单品定制词</span></td>
+              <td style="color:var(--accent-red);font-weight:600">"100%白鹅绒"</td>
+              <td>✅ 已记录</td><td><span class="badge badge-warning">待截取</span></td>
+              <td><button class="btn btn-sm btn-outline">查看</button></td>
+            </tr>
+            <tr>
+              <td>04-26 19:30</td><td>匡威/官方店</td><td>小赵</td>
+              <td><span class="badge badge-warning">通用违规词</span></td>
+              <td style="color:var(--accent-red);font-weight:600">"最后5单"</td>
+              <td>✅ 已记录</td><td><span class="badge badge-primary">已结案</span></td>
+              <td><button class="btn btn-sm btn-outline">查看</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pm-pagination">共 47 条记录 | ← 上一页 1 2 3 ... 5 下一页 →</div>
+    </div>
+
+    <!-- 证据链详情 -->
+    <div class="pm-tab-panel" id="tab-detail">
+      <div class="pm-detail">
+        <div style="margin-bottom:12px;display:flex;gap:8px">
+          <button class="btn btn-sm btn-outline" onclick="switchPmTab('records')">← 返回列表</button>
+          <span class="badge badge-warning" style="align-self:center">直播结束后自动截取</span>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <h4><div class="accent-bar red" style="width:3px;height:14px;border-radius:2px"></div>违规信息</h4>
+            <div style="margin-bottom:8px"><span class="badge badge-danger">商详不一致</span> <span class="badge badge-success">已纠正</span></div>
+            <div class="info-row"><span class="label">触发时间</span><span class="value">2026-04-28 14:30:25</span></div>
+            <div class="info-row"><span class="label">纠正时间</span><span class="value">2026-04-28 14:30:52</span></div>
+            <div class="info-row"><span class="label">品牌/店铺</span><span class="value">北面/旗舰店铺</span></div>
+            <div class="info-row"><span class="label">主播</span><span class="value">小王</span></div>
+            <div class="info-row"><span class="label">当前商品</span><span class="value">儿童三合一羽绒服 (SKU-2026-88421)</span></div>
+            <div class="info-row"><span class="label">命中词汇</span><span class="value" style="color:var(--accent-red)">"刺绣标"（单品定制词）</span></div>
+            <div class="info-row"><span class="label">商详实际值</span><span class="value">外层：印标 / 内层：刺绣标</span></div>
+            <div class="info-row"><span class="label">截取范围</span><span class="value" style="color:var(--warning)">14:29:55 ~ 14:31:22</span></div>
+          </div>
+          <div class="detail-card">
+            <h4><div class="accent-bar pink" style="width:3px;height:14px;border-radius:2px"></div>证据链</h4>
+            <div class="evidence-item" style="border-left-color:var(--warning)"><span class="ev-label">⏳ 时间戳已记录（待直播结束后截取）</span><span class="ev-dur">预计 01:27</span><span class="ev-status" style="color:var(--warning)">待截取</span></div>
+            <div class="evidence-item"><span class="ev-label">话术转写全文</span><span class="ev-dur">全文</span><span class="ev-status">✅ 已存储</span></div>
+            <div class="evidence-item"><span class="ev-label">商品信息快照</span><span class="ev-dur">快照</span><span class="ev-status">✅ 已存储</span></div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <button class="btn btn-sm btn-primary" onclick="showToast('直播结束后自动截取，届时可下载','warning')">下载证据</button>
+              <button class="btn btn-sm btn-outline" onclick="showToast('证据包将直播结束后自动生成','warning')">导出证据</button>
+              <button class="btn btn-sm btn-success" onclick="showToast('已标记结案','success')">标记结案</button>
+            </div>
+          </div>
+        </div>
+        <div class="detail-card" style="margin-bottom:16px">
+          <h4><div class="accent-bar orange" style="width:3px;height:14px;border-radius:2px"></div>录屏回放预览 <span class="badge badge-warning" style="font-size:10px;margin-left:8px">直播结束后可用</span></h4>
+          <div class="video-player" style="opacity:0.5">
+            <div style="text-align:center;color:rgba(255,255,255,0.5)">
+              <div style="font-size:36px;margin-bottom:8px">⏳</div>
+              <div style="font-size:14px">直播结束后自动截取</div>
+              <div style="font-size:12px;margin-top:4px">截取范围: 14:29:55 ~ 14:31:22</div>
+            </div>
+          </div>
+          <div class="video-markers">
+            <span class="marker violation">▼ 违规开始 14:30:25</span>
+            <span class="marker correction">▼ 纠正完成 14:30:52</span>
+            <div style="flex:1"></div>
+            <span>截取范围: 违规前30s ~ 纠正后30s</span>
+          </div>
+          <div class="video-timeline" style="opacity:0.5"><div class="played" style="width:35%"></div><div class="thumb"></div></div>
+        </div>
+        <div class="detail-card">
+          <h4><div class="accent-bar green" style="width:3px;height:14px;border-radius:2px"></div>话术转写</h4>
+          <div class="transcript-list">
+            <div class="transcript-item"><span class="t-time">14:30:12</span><span class="t-text">这个是我们新款的三合一羽绒服...</span></div>
+            <div class="transcript-item hl"><span class="t-time">14:30:25</span><span class="t-text">里面是刺绣标的啊，质感特别好</span></div>
+            <div class="transcript-item hl"><span class="t-time">14:30:38</span><span class="t-text">外层也是刺绣标，全部都是...</span></div>
+            <div class="transcript-item"><span class="t-time">14:30:45</span><span class="t-text">对不起，刚才口误，里面是刺绣标，</span></div>
+            <div class="transcript-item"><span class="t-time">14:30:52</span><span class="t-text">外层其实是印标的，大家注意看商详</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 词库管理 -->
+    <div class="pm-tab-panel" id="tab-wordlib">
+      <div class="wordlib-actions">
+        <div class="section-header" style="margin:0">
+          <div class="accent-bar pink" style="width:3px;height:14px;border-radius:2px"></div>
+          <span class="title">违规词库</span>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="showToast('新增违规词弹窗（Demo）','warning')">+ 新增违规词</button>
+      </div>
+      <div class="wordlib-stats">
+        <div class="wordlib-stat"><div class="num">86</div><div class="label">通用词库总量</div></div>
+        <div class="wordlib-stat"><div class="num" style="color:var(--warning)">142</div><div class="label">单品定制词库</div></div>
+        <div class="wordlib-stat"><div class="num">12</div><div class="label">本月新增</div></div>
+      </div>
+      <div class="pm-table-wrap">
+        <table>
+          <thead><tr><th>违规词</th><th>词库类型</th><th>关联商品</th><th>匹配策略</th><th>触发次数(月)</th><th>最近触发</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--accent-red);font-weight:600">不褪色</td><td><span class="badge badge-warning">通用词库</span></td><td>—</td><td>模糊匹配</td><td>8</td><td>04-28</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px" onclick="event.preventDefault();showToast('编辑功能（Demo）','warning')">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px" onclick="event.preventDefault();showToast('已删除','error')">删除</a></td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:600">永不降价</td><td><span class="badge badge-warning">通用词库</span></td><td>—</td><td>精确匹配</td><td>5</td><td>04-28</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+            <tr style="background:#FFF8E1"><td style="color:var(--accent-red);font-weight:600">刺绣标</td><td><span class="badge badge-danger">单品定制</span></td><td>儿童三合一羽绒服 <span style="color:var(--text-tertiary);font-size:10px">SKU-88421</span></td><td>精确匹配</td><td>3</td><td>04-28</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+            <tr style="background:#FFF8E1"><td style="color:var(--accent-red);font-weight:600">100%棉</td><td><span class="badge badge-danger">单品定制</span></td><td>儿童三合一羽绒服 <span style="color:var(--text-tertiary);font-size:10px">SKU-88421</span></td><td>精确匹配</td><td>2</td><td>04-26</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+            <tr style="background:#FFF8E1"><td style="color:var(--accent-red);font-weight:600">明星同款</td><td><span class="badge badge-danger">单品定制</span></td><td>联名T恤 <span style="color:var(--text-tertiary);font-size:10px">SKU-77210</span></td><td>精确匹配</td><td>1</td><td>04-27</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+            <tr style="background:#FFF8E1"><td style="color:var(--accent-red);font-weight:600">100%白鹅绒</td><td><span class="badge badge-danger">单品定制</span></td><td>长款羽绒服 <span style="color:var(--text-tertiary);font-size:10px">SKU-66543</span></td><td>精确匹配</td><td>1</td><td>04-27</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+            <tr><td style="color:var(--accent-red);font-weight:600">最后5单</td><td><span class="badge badge-warning">通用词库</span></td><td>—</td><td>模糊匹配</td><td>3</td><td>04-27</td><td><span class="badge badge-success">启用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+            <tr><td style="color:var(--text-tertiary)">YKK拉链</td><td><span class="badge badge-muted">单品定制</span></td><td>运动裤 <span style="color:var(--text-tertiary);font-size:10px">SKU-55012</span></td><td>精确匹配</td><td>1</td><td>04-25</td><td><span class="badge badge-muted">已停用</span></td><td><a href="#" style="color:var(--primary);font-size:12px">编辑</a> | <a href="#" style="color:var(--accent-red);font-size:12px">删除</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="import-area" onclick="showToast('文件上传功能（Demo）','warning')">
+        📁 拖拽文件到此处或点击上传 | 支持 CSV / Excel
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ALERT MODAL ========== -->
+<div class="modal-overlay" id="alertModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⚠ 违规话术检测告警</h3>
+      <button class="modal-close" onclick="closeAlertModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-success" onclick="closeAlertModal();showToast('已标记为已处理','success')">标记已处理</button>
+      <button class="btn btn-danger" onclick="closeAlertModal();showAnchorForAlert()" style="font-size:14px;padding:8px 20px">📢 展示给主播</button>
+      <button class="btn btn-outline" onclick="closeAlertModal();showToast('已忽略','warning')">忽略此条</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== PAGE SWITCHING ==========
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelector(`.nav-tab[data-page="${page}"]`).classList.add('active');
+}
+
+// ========== PM TAB SWITCHING ==========
+function switchPmTab(tab) {
+  document.querySelectorAll('.pm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.pm-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.pm-tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ========== SPEECH LIST ==========
+const speeches = [
+  { time: '14:30:12', text: '这个是我们新款的三合一羽绒服，手感特别好...', hl: false },
+  { time: '14:30:25', text: '里面是<span class="highlight-word">刺绣标</span>的啊，质感特别好', hl: true },
+  { time: '14:30:38', text: '外层也是<span class="highlight-word">刺绣标</span>，全部都是...', hl: true },
+  { time: '14:30:45', text: '对不起，刚才口误，里面是刺绣标，', hl: false },
+  { time: '14:30:52', text: '外层其实是印标的，大家注意看商详', hl: false },
+  { time: '14:31:05', text: '这个款我们有两种颜色，黑色和藏青色', hl: false },
+  { time: '14:31:18', text: '内胆可以拆卸，春天当外套穿也很合适', hl: false },
+  { time: '14:31:30', text: '现在拍下今天就能发货，顺丰包邮', hl: false },
+];
+const speechList = document.getElementById('speechList');
+speeches.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'speech-item' + (s.hl ? ' violation' : '');
+  div.innerHTML = `<span class="time">${s.time}</span><span class="text">${s.text}</span>`;
+  speechList.appendChild(div);
+});
+speechList.scrollTop = speechList.scrollHeight;
+
+// ========== TIMER ==========
+let timerSeconds = 11 * 60 + 29;
+setInterval(() => {
+  timerSeconds++;
+  const m = Math.floor(timerSeconds / 60);
+  const s = timerSeconds % 60;
+  document.getElementById('timerValue').textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}, 1000);
+
+// ========== ANCHOR OVERLAY ==========
+const anchorSuggestions = [
+  { suggestion: '"外层是印标工艺，里面才是刺绣标"', detail: '商详显示：外层印标 / 内层刺绣标 → 请勿统称"全部刺绣标"' },
+  { suggestion: '"这个价格非常实惠，大家放心拍"', detail: '禁止使用"永不降价"等绝对化词汇，违反《广告法》' },
+  { suggestion: '"这款是棉涤混纺面料，穿着也很舒服"', detail: '商详显示：棉涤混纺 → 请勿说"100%棉"' },
+];
+let currentAlertIdx = 0;
+
+function showAnchorOverlay(idx) {
+  const data = anchorSuggestions[idx] || anchorSuggestions[0];
+  document.getElementById('anchorSuggestion').textContent = data.suggestion;
+  document.getElementById('anchorDetail').textContent = data.detail;
+  document.getElementById('anchorOverlay').classList.add('show');
+}
+
+function showAnchorForAlert() {
+  showAnchorOverlay(currentAlertIdx);
+}
+
+function dismissAnchor() {
+  document.getElementById('anchorOverlay').classList.remove('show');
+  showToast('主播已纠正，时间戳已更新', 'success');
+}
+
+// ========== ALERT MODAL ==========
+const alertData = [
+  {
+    type: '商详不一致（单品定制词）', typeBadge: 'badge-danger',
+    word: '主播口播："里面是刺绣标的啊，外层也是刺绣标"',
+    correct: '商详实际信息：外层为印标，内层为刺绣标。主播未区分内外层标识。',
+    product: '北面儿童三合一羽绒服 (SKU-2026-88421)',
+    suggestion: '"这个款式里面是刺绣标的，外层是印标工艺，大家以商品详情为准"',
+    time: '2026-04-28 14:30:25',
+    tsInfo: '违规时间戳: 14:30:25 | 纠正时间戳: 14:30:52 | 截取范围: 14:29:55 ~ 14:31:22'
+  },
+  {
+    type: '通用违规词', typeBadge: 'badge-warning',
+    word: '主播口播："这个价格永不降价"',
+    correct: '禁止使用绝对化词汇，违反《广告法》相关规定。',
+    product: '北面儿童三合一羽绒服 (SKU-2026-88421)',
+    suggestion: '"这个价格非常实惠，大家放心拍"',
+    time: '2026-04-28 14:28:10',
+    tsInfo: '违规时间戳: 14:28:10 | 纠正时间戳: 14:28:15 | 截取范围: 14:27:40 ~ 14:28:45'
+  }
+];
+
+function openAlertModal(idx) {
+  currentAlertIdx = idx;
+  const d = alertData[idx];
+  document.getElementById('modalBody').innerHTML = `
+    <div style="margin-bottom:12px"><span class="badge ${d.typeBadge}">${d.type}</span> <span style="font-size:12px;color:var(--text-tertiary);margin-left:8px">触发时间：${d.time}</span></div>
+    <div style="background:var(--accent-red-light);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--accent-red);font-weight:600;margin-bottom:4px">违规内容</div>
+      <div style="font-size:14px;color:var(--accent-red);font-weight:600">${d.word}</div>
+      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">${d.correct}</div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">当前商品：${d.product}</div>
+    </div>
+    <div style="background:var(--success-light);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--success);font-weight:600;margin-bottom:4px">✔ 建议纠正话术</div>
+      <div style="font-size:14px;color:var(--text-primary);font-weight:600">${d.suggestion}</div>
+    </div>
+    <div style="background:var(--warning-light);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">📍</span>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--warning)">时间戳已记录</div>
+        <div style="font-size:11px;color:var(--text-tertiary)">${d.tsInfo}</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">直播结束后将自动从回放中截取该段作为证据</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('alertModal').classList.add('show');
+}
+
+function closeAlertModal() {
+  document.getElementById('alertModal').classList.remove('show');
+}
+
+// ========== TOAST ==========
+let toastTimer;
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast ' + type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ========== AUTO DEMO: simulate new speech + alert ==========
+const demoSpeeches = [
+  { time: '14:32:10', text: '这款我们现在有满减活动，非常划算', hl: false },
+  { time: '14:32:25', text: '这个面料是<span class="highlight-word">100%棉</span>的，穿着特别舒服', hl: true, anchorIdx: 2 },
+  { time: '14:32:40', text: '不好意思说错了，是棉涤混纺面料', hl: false },
+  { time: '14:32:55', text: '大家看商详，上面有详细的成分标注', hl: false },
+  { time: '14:33:10', text: '现在下单还送运费险，七天无理由退换', hl: false },
+];
+let demoIdx = 0;
+setInterval(() => {
+  if (demoIdx >= demoSpeeches.length) return;
+  const s = demoSpeeches[demoIdx];
+  const div = document.createElement('div');
+  div.className = 'speech-item' + (s.hl ? ' violation' : '');
+  div.innerHTML = `<span class="time">${s.time}</span><span class="text">${s.text}</span>`;
+  speechList.appendChild(div);
+  speechList.scrollTop = speechList.scrollHeight;
+
+  if (s.hl) {
+    document.getElementById('ctrlDot').classList.add('show');
+    showToast('检测到违规话术（单品定制词）："100%棉"，时间戳已记录', 'error');
+    setTimeout(() => {
+      showAnchorOverlay(s.anchorIdx || 0);
+    }, 1000);
+  }
+  demoIdx++;
+}, 5000);
+
+// Close modal on overlay click
+document.getElementById('alertModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAlertModal();
+});
+</script>
+</body>
+</html>
